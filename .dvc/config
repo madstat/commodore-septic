@@ -1,8 +1,9 @@
 [core]
     remote = box
+    autostage = true
 ['remote "gdrive"']
     url = gdrive://1NKW1_494F3m74wh7ghwm6G-A7z8U3_7E
 ['remote "local"']
     url = /Users/bobby/dvc-remote
 ['remote "box"']
-    url = remote://commodore_septic_box/commodore_septic_dvc
+    url = ~/.cache/dvc-box-mount
