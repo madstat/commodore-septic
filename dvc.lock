@@ -20,5 +20,5 @@ stages:
     outs:
     - path: data/shelly_history.db
       hash: md5
-      md5: 1d199b27d988dbfe9bce20d89a080132
-      size: 28672
+      md5: eacf18f0f76af14203c539d9053dd719
+      size: 32768
