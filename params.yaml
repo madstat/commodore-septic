@@ -1,4 +1,4 @@
-output_csv: data/septic_controls_history.csv
+output_db: data/shelly_history.db
 date_from: "2026-06-16"
 date_to: "2026-06-19"
 

@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Download Shelly v2 power-consumption history in daily chunks and write CSV.
+"""Download Shelly v2 power-consumption history in daily chunks and write to SQLite.
 
 Reads `SHELLY_HOST`, `SHELLY_AUTH_KEY`, and `DEVICE_IDS` from environment or .env.
 
 Usage example:
-  python3 export_history.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.csv
+    python3 export_history.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.db
 """
 from __future__ import annotations
 
 import argparse
-import csv
 import os
 import sys
 import time
@@ -17,6 +16,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 import requests
+import sqlite3
 from dotenv import load_dotenv
 
 
@@ -103,13 +103,22 @@ def normalize_entry(e: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _safe_float(v: Any) -> Any:
+    if v is None or v == '':
+        return None
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
 def main(argv: List[str]):
-    p = argparse.ArgumentParser(description='Download Shelly v2 power-consumption history to CSV')
+    p = argparse.ArgumentParser(description='Download Shelly v2 power-consumption history to SQLite DB')
     p.add_argument('--device', help='device id (overrides DEVICE_IDS)', default=None)
     p.add_argument('--channel', help='channel number', default=0, type=int)
     p.add_argument('--date-from', required=True, help="Start date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
     p.add_argument('--date-to', required=True, help="End date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
-    p.add_argument('--output', '-o', default='data/septic_controls_history.csv', help='Output CSV path (default: data/septic_controls_history.csv)')
+    p.add_argument('--output', '-o', default='data/septic_controls_history.db', help='Output SQLite DB path (default: data/septic_controls_history.db)')
     p.add_argument('--sleep', type=float, default=1.05, help='Seconds to sleep between requests (rate limit)')
     args = p.parse_args(argv)
 
@@ -169,19 +178,63 @@ def main(argv: List[str]):
 
         time.sleep(args.sleep)
 
-    # Write CSV
-    fieldnames = ['datetime', 'consumption', 'voltage', 'reversed', 'cost', 'purpose', 'tariff_id']
+    # Write to SQLite (auto-assigning integer primary key `id`)
+    # If user provided a .csv filename, switch to .db with same base name.
     out_path = args.output
+    if out_path.endswith('.csv'):
+        out_path = out_path[:-4] + '.db'
+    elif not out_path.endswith('.db'):
+        out_path = out_path + '.db'
+
     output_dir = os.path.dirname(out_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-    with open(out_path, 'w', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        for row in all_rows:
-            w.writerow(row)
 
-    print(f'Wrote {len(all_rows)} rows to {out_path}')
+    conn = sqlite3.connect(out_path)
+    try:
+        cur = conn.cursor()
+        # Create table if not exists. `id` will be auto-incrementing primary key.
+        cur.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                datetime TEXT,
+                consumption REAL,
+                voltage REAL,
+                reversed REAL,
+                cost REAL,
+                purpose TEXT,
+                tariff_id TEXT
+            )
+            '''
+        )
+
+        insert_sql = (
+            'INSERT INTO history (datetime, consumption, voltage, reversed, cost, purpose, tariff_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )
+
+        rows_to_insert = []
+        for row in all_rows:
+            rows_to_insert.append(
+                (
+                    row.get('datetime', ''),
+                    _safe_float(row.get('consumption', '')),
+                    _safe_float(row.get('voltage', '')),
+                    _safe_float(row.get('reversed', '')),
+                    _safe_float(row.get('cost', '')),
+                    row.get('purpose', ''),
+                    str(row.get('tariff_id', '')),
+                )
+            )
+
+        if rows_to_insert:
+            cur.executemany(insert_sql, rows_to_insert)
+            conn.commit()
+
+        print(f'Wrote {len(rows_to_insert)} rows to {out_path}')
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':

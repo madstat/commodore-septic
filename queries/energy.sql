@@ -1,0 +1,1 @@
+SELECT * FROM main.history LIMIT 10;
