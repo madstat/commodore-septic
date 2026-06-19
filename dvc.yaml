@@ -1,12 +1,12 @@
 stages:
   pull_shelly_data:
-    cmd: python export_history.py --date-from ${date_from} --date-to ${date_to} --output ${output_csv}
+    cmd: python export_history.py --date-from ${date_from} --date-to ${date_to} --output ${output_db}
     deps:
       - export_history.py
       - params.yaml
     params:
       - date_from
       - date_to
-      - output_csv
+      - output_db
     outs:
-      - ${output_csv}
+      - ${output_db}

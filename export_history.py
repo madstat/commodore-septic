@@ -129,13 +129,19 @@ def main(argv: List[str]):
         print('Missing SHELLY_HOST or SHELLY_AUTH_KEY in environment or .env', file=sys.stderr)
         sys.exit(2)
 
-    device = args.device
-    if not device:
-        ids = cfg['device_ids']
-        if not ids:
+    device_arg = args.device
+    ids = []
+    if device_arg:
+        ids = [device_arg.strip()]
+    else:
+        env_ids = cfg['device_ids']
+        if not env_ids:
             print('No device specified and DEVICE_IDS not set in environment/.env', file=sys.stderr)
             sys.exit(2)
-        device = ids.split(',')[0].strip()
+        ids = [d.strip() for d in env_ids.split(',') if d.strip()]
+        if not ids:
+            print('No valid device IDs were found in DEVICE_IDS', file=sys.stderr)
+            sys.exit(2)
 
     try:
         start = parse_date(args.date_from)
@@ -152,31 +158,34 @@ def main(argv: List[str]):
 
     all_rows: List[Dict[str, Any]] = []
 
-    for r in ranges:
-        df = r['from'].strftime('%Y-%m-%d %H:%M:%S')
-        dt = r['to'].strftime('%Y-%m-%d %H:%M:%S')
-        print(f'Fetching {df} -> {dt}')
-        try:
-            j = fetch_chunk(host, auth, device, args.channel, df, dt)
-        except Exception as e:
-            print(f'Failed to fetch chunk {df} - {dt}: {e}', file=sys.stderr)
-            sys.exit(1)
+    for device in ids:
+        for r in ranges:
+            df = r['from'].strftime('%Y-%m-%d %H:%M:%S')
+            dt = r['to'].strftime('%Y-%m-%d %H:%M:%S')
+            print(f'Fetching {device} {df} -> {dt}')
+            try:
+                j = fetch_chunk(host, auth, device, args.channel, df, dt)
+            except Exception as e:
+                print(f'Failed to fetch chunk {df} - {dt} for {device}: {e}', file=sys.stderr)
+                sys.exit(1)
 
-        # The returned JSON may be {timezone, interval, history} or {data: {...}}
-        data = None
-        if isinstance(j, dict) and 'history' in j:
-            data = j
-        elif isinstance(j, dict) and 'data' in j and isinstance(j['data'], dict) and 'history' in j['data']:
-            data = j['data']
-        else:
-            print('Unexpected JSON structure from server:', j, file=sys.stderr)
-            sys.exit(1)
+            # The returned JSON may be {timezone, interval, history} or {data: {...}}
+            data = None
+            if isinstance(j, dict) and 'history' in j:
+                data = j
+            elif isinstance(j, dict) and 'data' in j and isinstance(j['data'], dict) and 'history' in j['data']:
+                data = j['data']
+            else:
+                print('Unexpected JSON structure from server:', j, file=sys.stderr)
+                sys.exit(1)
 
-        history = data.get('history', []) or []
-        for e in history:
-            all_rows.append(normalize_entry(e))
+            history = data.get('history', []) or []
+            for e in history:
+                row = normalize_entry(e)
+                row['device_id'] = device
+                all_rows.append(row)
 
-        time.sleep(args.sleep)
+            time.sleep(args.sleep)
 
     # Write to SQLite (auto-assigning integer primary key `id`)
     # If user provided a .csv filename, switch to .db with same base name.
@@ -193,31 +202,44 @@ def main(argv: List[str]):
     conn = sqlite3.connect(out_path)
     try:
         cur = conn.cursor()
-        # Create table if not exists. `id` will be auto-incrementing primary key.
         cur.execute(
             '''
-            CREATE TABLE IF NOT EXISTS history (
+            CREATE TABLE IF NOT EXISTS devices (
+                device_id TEXT PRIMARY KEY,
+                name TEXT
+            )
+            '''
+        )
+        cur.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS energy_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
                 datetime TEXT,
                 consumption REAL,
                 voltage REAL,
                 reversed REAL,
                 cost REAL,
                 purpose TEXT,
-                tariff_id TEXT
+                tariff_id TEXT,
+                FOREIGN KEY(device_id) REFERENCES devices(device_id)
             )
             '''
         )
 
+        insert_device_sql = 'INSERT OR IGNORE INTO devices (device_id) VALUES (?)'
+        cur.executemany(insert_device_sql, [(device,) for device in ids])
+
         insert_sql = (
-            'INSERT INTO history (datetime, consumption, voltage, reversed, cost, purpose, tariff_id) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO energy_history (device_id, datetime, consumption, voltage, reversed, cost, purpose, tariff_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         )
 
         rows_to_insert = []
         for row in all_rows:
             rows_to_insert.append(
                 (
+                    row.get('device_id', ''),
                     row.get('datetime', ''),
                     _safe_float(row.get('consumption', '')),
                     _safe_float(row.get('voltage', '')),
