@@ -6,19 +6,19 @@ stages:
     deps:
     - path: export_history.py
       hash: md5
-      md5: 91462e6643fe1a14c5a4bb468d093d83
-      size: 7838
+      md5: 9f3f12a4e69941342e72fb07a97e15ca
+      size: 8717
     - path: params.yaml
       hash: md5
-      md5: 2637ff633bbfceb5843321063c5530f4
-      size: 82
+      md5: 156a248306c2b32693e5b46a006ae48f
+      size: 81
     params:
       params.yaml:
         date_from: '2026-06-16'
         date_to: '2026-06-19'
-        output_csv: data/shelly_history.db
+        output_db: data/shelly_history.db
     outs:
     - path: data/shelly_history.db
       hash: md5
-      md5: b5eed3c118c927ab426dfd3f7c205fb8
-      size: 12288
+      md5: 1d199b27d988dbfe9bce20d89a080132
+      size: 28672
