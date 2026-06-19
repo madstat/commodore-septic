@@ -9,4 +9,5 @@ stages:
       - date_to
       - output_db
     outs:
-      - ${output_db}
+      - ${output_db}:
+          persist: true
