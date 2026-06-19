@@ -2,23 +2,23 @@ schema: '2.0'
 stages:
   pull_shelly_data:
     cmd: python export_history.py --date-from 2026-06-16 --date-to 2026-06-19 
-      --output data/septic_controls_history.csv
+      --output data/shelly_history.db
     deps:
     - path: export_history.py
       hash: md5
-      md5: 5b98614f9056048978631757623d9209
-      size: 6267
+      md5: 91462e6643fe1a14c5a4bb468d093d83
+      size: 7838
     - path: params.yaml
       hash: md5
-      md5: 6de47063cf708459cc1a7dac3098756a
-      size: 92
+      md5: 2637ff633bbfceb5843321063c5530f4
+      size: 82
     params:
       params.yaml:
         date_from: '2026-06-16'
         date_to: '2026-06-19'
-        output_csv: data/septic_controls_history.csv
+        output_csv: data/shelly_history.db
     outs:
-    - path: data/septic_controls_history.csv
+    - path: data/shelly_history.db
       hash: md5
-      md5: 7fdea566af1f24a08538c89583c83a08
-      size: 3109
+      md5: b5eed3c118c927ab426dfd3f7c205fb8
+      size: 12288
