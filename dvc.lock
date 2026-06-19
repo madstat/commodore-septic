@@ -2,7 +2,7 @@ schema: '2.0'
 stages:
   pull_shelly_data:
     cmd: python export_history.py --date-from 2026-06-16 --date-to 2026-06-19 
-      --output data/shelly_history.db
+      --output data/shelly_history_live.db
     deps:
     - path: export_history.py
       hash: md5
@@ -10,15 +10,29 @@ stages:
       size: 8717
     - path: params.yaml
       hash: md5
-      md5: 156a248306c2b32693e5b46a006ae48f
-      size: 81
+      md5: 93da71b4e863b5773b2445942c887db0
+      size: 118
     params:
       params.yaml:
         date_from: '2026-06-16'
         date_to: '2026-06-19'
+        live_db: data/shelly_history_live.db
+  snapshot_shelly_db:
+    cmd: cp data/shelly_history_live.db data/shelly_history.db
+    deps:
+    - path: data/shelly_history_live.db
+      hash: md5
+      md5: 3d63f11aef872993edd398a5b9374cd2
+      size: 32768
+    - path: params.yaml
+      hash: md5
+      md5: 93da71b4e863b5773b2445942c887db0
+      size: 118
+    params:
+      params.yaml:
         output_db: data/shelly_history.db
     outs:
     - path: data/shelly_history.db
       hash: md5
-      md5: eacf18f0f76af14203c539d9053dd719
+      md5: 3d63f11aef872993edd398a5b9374cd2
       size: 32768
