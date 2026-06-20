@@ -1,0 +1,19 @@
+stages:
+  pull_energy_data:
+    cmd: python export_energy.py --date-from ${date_from} --date-to ${date_to} --output ${commodore_history_db}
+    deps:
+      - export_energy.py
+      - params.yaml
+    params:
+      - date_from
+      - date_to
+      - commodore_history_db
+  snapshot_commodore_history:
+    cmd: cp ${commodore_history_db} ${commodore_history_snapshot_db}
+    deps:
+      - ${commodore_history_db}
+      - params.yaml
+    params:
+      - commodore_history_snapshot_db
+    outs:
+      - ${commodore_history_snapshot_db}

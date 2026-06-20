@@ -1,0 +1,11 @@
+[core]
+    remote = box
+    autostage = true
+[cache]
+    type = hardlink
+['remote "gdrive"']
+    url = gdrive://1NKW1_494F3m74wh7ghwm6G-A7z8U3_7E
+['remote "local"']
+    url = /Users/bobby/dvc-remote
+['remote "box"']
+    url = ~/.cache/dvc-box-mount

@@ -1,0 +1,19 @@
+[project]
+name = "commodore-septic"
+version = "0.1.0"
+description = "Repository for Commodore Septic Python utilities."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "requests",
+    "pandas",
+    "numpy",
+    "python-dotenv",
+    "dvc>=3.67.1",
+    "ipykernel>=7.3.0",
+    "dvc-gdrive>=3.0.1",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
