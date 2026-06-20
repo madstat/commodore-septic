@@ -1,8 +1,8 @@
 stages:
   pull_energy_data:
-    cmd: python export_energy.py --date-from ${date_from} --date-to ${date_to} --output ${commodore_history_db}
+    cmd: python datapulls/export_energy.py --date-from ${date_from} --date-to ${date_to} --output ${commodore_history_db}
     deps:
-      - export_energy.py
+      - datapulls/export_energy.py
       - params.yaml
     params:
       - date_from

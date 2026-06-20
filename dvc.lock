@@ -37,13 +37,13 @@ stages:
       md5: 3d63f11aef872993edd398a5b9374cd2
       size: 32768
   pull_energy_data:
-    cmd: python export_energy.py --date-from 2026-06-16 --date-to 2026-06-19 
-      --output data/commodore_history.db
+    cmd: python datapulls/export_energy.py --date-from 2026-06-16 --date-to 
+      2026-06-19 --output data/commodore_history.db
     deps:
-    - path: export_energy.py
+    - path: datapulls/export_energy.py
       hash: md5
-      md5: d44a424b36455cec55a4f25e1ebaa937
-      size: 8705
+      md5: 77a764158b749160e7f708fe61099977
+      size: 8715
     - path: params.yaml
       hash: md5
       md5: f8c8769694b735d3858bf6e0e1b4d665

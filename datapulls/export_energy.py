@@ -4,7 +4,7 @@
 Reads `SHELLY_HOST`, `SHELLY_AUTH_KEY`, and `DEVICE_IDS` from environment or .env.
 
 Usage example:
-    python3 export_energy.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.db
+    python3 datapulls/export_energy.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.db
 """
 from __future__ import annotations
 

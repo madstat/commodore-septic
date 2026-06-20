@@ -5,7 +5,7 @@ Reads `LODGIFY_HOST`, `LODGIFY_AUTH_KEY`, and `LODGIFY_PROPERTY_ID`
 from environment or `.env`.
 
 Usage example:
-    python3 export_bookings.py --date-from 2026-01-01 --date-to 2026-01-31 --output data/lodgify_reservations.json
+    python3 datapulls/export_bookings.py --date-from 2026-01-01 --date-to 2026-01-31 --output data/lodgify_reservations.json
 """
 
 from __future__ import annotations

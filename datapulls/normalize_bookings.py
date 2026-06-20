@@ -2,7 +2,7 @@
 """Normalize Lodgify reservations JSON into a SQLite `bookings` table.
 
 Usage example:
-  python3 normalize_bookings.py \
+    python3 datapulls/normalize_bookings.py \
     --input data/lodgify_reservations_2026_06.json \
     --db data/commodore_history.db
 """
