@@ -215,7 +215,7 @@ def main(argv: List[str]):
             CREATE TABLE IF NOT EXISTS energy_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 device_id TEXT NOT NULL,
-                datetime TEXT,
+                datetime TEXT NOT NULL,
                 consumption REAL,
                 voltage REAL,
                 reversed REAL,
@@ -226,21 +226,39 @@ def main(argv: List[str]):
             )
             '''
         )
+        cur.execute(
+            '''
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_energy_history_device_datetime
+            ON energy_history (device_id, datetime)
+            '''
+        )
 
         insert_device_sql = 'INSERT OR IGNORE INTO devices (device_id) VALUES (?)'
         cur.executemany(insert_device_sql, [(device,) for device in ids])
 
         insert_sql = (
             'INSERT INTO energy_history (device_id, datetime, consumption, voltage, reversed, cost, purpose, tariff_id) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?) '
+            'ON CONFLICT(device_id, datetime) DO UPDATE SET '
+            'consumption = excluded.consumption, '
+            'voltage = excluded.voltage, '
+            'reversed = excluded.reversed, '
+            'cost = excluded.cost, '
+            'purpose = excluded.purpose, '
+            'tariff_id = excluded.tariff_id'
         )
 
         rows_to_insert = []
+        skipped_no_datetime = 0
         for row in all_rows:
+            dt = str(row.get('datetime', '')).strip()
+            if not dt:
+                skipped_no_datetime += 1
+                continue
             rows_to_insert.append(
                 (
                     row.get('device_id', ''),
-                    row.get('datetime', ''),
+                    dt,
                     _safe_float(row.get('consumption', '')),
                     _safe_float(row.get('voltage', '')),
                     _safe_float(row.get('reversed', '')),
@@ -254,7 +272,7 @@ def main(argv: List[str]):
             cur.executemany(insert_sql, rows_to_insert)
             conn.commit()
 
-        print(f'Wrote {len(rows_to_insert)} rows to {out_path}')
+        print(f'Upserted {len(rows_to_insert)} rows to {out_path} (skipped_missing_datetime={skipped_no_datetime})')
     finally:
         conn.close()
 
