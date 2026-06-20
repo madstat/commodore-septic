@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Download Shelly v2 power-consumption history in daily chunks and write to SQLite.
+"""Fetch Shelly energy meter data for a grinder pump and write to SQLite.
 
 Reads `SHELLY_HOST`, `SHELLY_AUTH_KEY`, and `DEVICE_IDS` from environment or .env.
 
 Usage example:
-    python3 export_history.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.db
+    python3 export_energy.py --date-from 2025-01-01 --date-to 2025-01-07 --output out.db
 """
 from __future__ import annotations
 

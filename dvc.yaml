@@ -1,19 +1,19 @@
 stages:
-  pull_shelly_data:
-    cmd: python export_history.py --date-from ${date_from} --date-to ${date_to} --output ${live_db}
+  pull_energy_data:
+    cmd: python export_energy.py --date-from ${date_from} --date-to ${date_to} --output ${commodore_history_db}
     deps:
-      - export_history.py
+      - export_energy.py
       - params.yaml
     params:
       - date_from
       - date_to
-      - live_db
-  snapshot_shelly_db:
-    cmd: cp ${live_db} ${output_db}
+      - commodore_history_db
+  snapshot_commodore_history:
+    cmd: cp ${commodore_history_db} ${commodore_history_snapshot_db}
     deps:
-      - ${live_db}
+      - ${commodore_history_db}
       - params.yaml
     params:
-      - output_db
+      - commodore_history_snapshot_db
     outs:
-      - ${output_db}
+      - ${commodore_history_snapshot_db}
