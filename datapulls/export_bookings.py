@@ -5,7 +5,7 @@ Reads `LODGIFY_HOST`, `LODGIFY_AUTH_KEY`, and `LODGIFY_PROPERTY_ID`
 from environment or `.env`.
 
 Usage example:
-    python3 datapulls/export_bookings.py --date-from 2026-01-01 --date-to 2026-01-31 --output data/lodgify_reservations.json
+    python3 datapulls/export_bookings.py --date-from 2026-01-01 --date-to 2026-01-31 --updated-since 2025-12-01 --output data/lodgify_reservations.json
 """
 
 from __future__ import annotations
@@ -114,8 +114,7 @@ def fetch_page(
     host: str,
     auth_key: str,
     property_id: str,
-    date_from: str,
-    date_to: str,
+    updated_since: str,
     page: int,
     page_size: int,
     timeout: int = 60,
@@ -131,7 +130,7 @@ def fetch_page(
         'size': page_size,
         'includeCount': 'true',
         # API supports "updatedSince" but not a to/until counterpart.
-        'updatedSince': date_from,
+        'updatedSince': updated_since,
         'stayFilter': 'All',
         'includeExternal': 'true',
     }
@@ -192,6 +191,7 @@ def fetch_reservations(
     property_id: str,
     date_from: str,
     date_to: str,
+    updated_since: str,
     page_size: int,
     sleep_s: float,
     max_rpm: int,
@@ -220,8 +220,7 @@ def fetch_reservations(
             host=host,
             auth_key=auth_key,
             property_id=property_id,
-            date_from=date_from,
-            date_to=date_to,
+            updated_since=updated_since,
             page=page,
             page_size=page_size,
             retries=retries,
@@ -256,6 +255,14 @@ def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description='Fetch Lodgify reservations to JSON')
     p.add_argument('--date-from', required=True, help="Start date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
     p.add_argument('--date-to', required=True, help="End date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
+    p.add_argument(
+        '--updated-since',
+        default=None,
+        help=(
+            "Use this value for Lodgify API updatedSince pre-filter "
+            "(YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS'). Defaults to --date-from."
+        ),
+    )
     p.add_argument('--output', '-o', default='data/lodgify_reservations.json', help='Output JSON path')
     p.add_argument('--page-size', type=int, default=100, help='Requested API page size')
     p.add_argument('--sleep', type=float, default=0.25, help='Sleep seconds between pages')
@@ -286,6 +293,8 @@ def main(argv: List[str]) -> int:
     try:
         start = parse_date(args.date_from)
         end = parse_date(args.date_to)
+        updated_since_raw = args.updated_since or args.date_from
+        updated_since_dt = parse_date(updated_since_raw)
     except ValueError as err:
         print(err, file=sys.stderr)
         return 2
@@ -296,6 +305,7 @@ def main(argv: List[str]) -> int:
 
     date_from = start.strftime('%Y-%m-%dT%H:%M:%S')
     date_to = end.strftime('%Y-%m-%dT%H:%M:%S')
+    updated_since = updated_since_dt.strftime('%Y-%m-%dT%H:%M:%S')
 
     try:
         reservations = fetch_reservations(
@@ -304,6 +314,7 @@ def main(argv: List[str]) -> int:
             property_id=property_id,
             date_from=date_from,
             date_to=date_to,
+            updated_since=updated_since,
             page_size=args.page_size,
             sleep_s=args.sleep,
             max_rpm=args.max_rpm,
@@ -323,6 +334,7 @@ def main(argv: List[str]) -> int:
         'property_id': property_id,
         'date_from': date_from,
         'date_to': date_to,
+        'updated_since': updated_since,
         'count': len(reservations),
         'reservations': reservations,
     }

@@ -3,7 +3,7 @@
 
 Usage example:
     python3 datapulls/normalize_bookings.py \
-    --input data/lodgify_reservations_2026_06.json \
+    --input data/lodgify_reservations.json \
     --db data/commodore_history.db
 """
 
@@ -84,6 +84,8 @@ def _flatten_booking(item: Dict[str, Any], pulled_at: str) -> Dict[str, Any]:
     guest = item.get("guest") if isinstance(item.get("guest"), dict) else {}
     external = _parse_external_booking(item)
     quote = item.get("quote") if isinstance(item.get("quote"), dict) else {}
+    check_in = item.get("check_in") if isinstance(item.get("check_in"), dict) else {}
+    check_out = item.get("check_out") if isinstance(item.get("check_out"), dict) else {}
     room = _extract_room_metrics(item)
 
     external_email = external.get("Guest Email") or external.get("guest_email")
@@ -100,6 +102,8 @@ def _flatten_booking(item: Dict[str, Any], pulled_at: str) -> Dict[str, Any]:
         "property_id": _to_int(item.get("property_id")),
         "arrival_date": item.get("arrival"),
         "departure_date": item.get("departure"),
+        "check_in_time": check_in.get("time"),
+        "check_out_time": check_out.get("time"),
         "status": item.get("status"),
         "source": item.get("source"),
         "source_text": item.get("source_text"),
@@ -143,6 +147,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             property_id INTEGER,
             arrival_date TEXT,
             departure_date TEXT,
+            check_in_time TEXT,
+            check_out_time TEXT,
             status TEXT,
             source TEXT,
             source_text TEXT,
@@ -178,6 +184,16 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         """
     )
 
+    # Keep existing databases forward-compatible with new columns.
+    try:
+        conn.execute("ALTER TABLE bookings ADD COLUMN check_in_time TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE bookings ADD COLUMN check_out_time TEXT")
+    except sqlite3.OperationalError:
+        pass
+
 
 def upsert_bookings(conn: sqlite3.Connection, rows: List[Dict[str, Any]]) -> Tuple[int, int]:
     existing_ids = set()
@@ -192,6 +208,7 @@ def upsert_bookings(conn: sqlite3.Connection, rows: List[Dict[str, Any]]) -> Tup
     sql = """
     INSERT INTO bookings (
         booking_id, user_id, property_id, arrival_date, departure_date,
+        check_in_time, check_out_time,
         status, source, source_text, language,
         guest_name, guest_email, guest_phone, guest_country_code,
         room_type_id, adults, children, infants, pets, people,
@@ -202,6 +219,7 @@ def upsert_bookings(conn: sqlite3.Connection, rows: List[Dict[str, Any]]) -> Tup
         raw_json, pulled_at
     ) VALUES (
         :booking_id, :user_id, :property_id, :arrival_date, :departure_date,
+        :check_in_time, :check_out_time,
         :status, :source, :source_text, :language,
         :guest_name, :guest_email, :guest_phone, :guest_country_code,
         :room_type_id, :adults, :children, :infants, :pets, :people,
@@ -216,6 +234,8 @@ def upsert_bookings(conn: sqlite3.Connection, rows: List[Dict[str, Any]]) -> Tup
         property_id = excluded.property_id,
         arrival_date = excluded.arrival_date,
         departure_date = excluded.departure_date,
+        check_in_time = excluded.check_in_time,
+        check_out_time = excluded.check_out_time,
         status = excluded.status,
         source = excluded.source,
         source_text = excluded.source_text,
