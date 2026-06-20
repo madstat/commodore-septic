@@ -1,4 +1,4 @@
-SELECT * FROM main.energy_history;
+SELECT * FROM main.energy_history LIMIT 2000;
 
 SELECT * FROM main.devices LIMIT 10;
 
