@@ -37,32 +37,32 @@ stages:
       md5: 3d63f11aef872993edd398a5b9374cd2
       size: 32768
   pull_energy_data:
-    cmd: python datapulls/export_energy.py --date-from 2026-06-16 --date-to 
-      2026-06-19 --output data/commodore_history.db
+    cmd: python datapulls/export_energy.py --date-from 2026-06-19 --date-to 
+      2026-06-21 --output data/commodore_history.db
     deps:
     - path: datapulls/export_energy.py
       hash: md5
-      md5: 77a764158b749160e7f708fe61099977
-      size: 8715
+      md5: 5b84ca284b7d26da2433fe2caf61fd95
+      size: 9452
     - path: params.yaml
       hash: md5
-      md5: f8c8769694b735d3858bf6e0e1b4d665
+      md5: 7ecfecb691092a2273e1b400066400e8
       size: 161
     params:
       params.yaml:
         commodore_history_db: data/commodore_history.db
-        date_from: '2026-06-16'
-        date_to: '2026-06-19'
+        date_from: '2026-06-19'
+        date_to: '2026-06-21'
   snapshot_commodore_history:
     cmd: cp data/commodore_history.db data/commodore_history_snapshot.db
     deps:
     - path: data/commodore_history.db
       hash: md5
-      md5: a0b1b44b264ae5ba202642be56f98b73
-      size: 1507328
+      md5: ec8f9c97c80b23c7e6779f4fc9eb5fd3
+      size: 2285568
     - path: params.yaml
       hash: md5
-      md5: f8c8769694b735d3858bf6e0e1b4d665
+      md5: 7ecfecb691092a2273e1b400066400e8
       size: 161
     params:
       params.yaml:
@@ -70,5 +70,5 @@ stages:
     outs:
     - path: data/commodore_history_snapshot.db
       hash: md5
-      md5: a0b1b44b264ae5ba202642be56f98b73
-      size: 1507328
+      md5: ec8f9c97c80b23c7e6779f4fc9eb5fd3
+      size: 2285568
