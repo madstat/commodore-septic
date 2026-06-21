@@ -58,7 +58,7 @@ stages:
     deps:
     - path: data/commodore_history.db
       hash: md5
-      md5: ec8f9c97c80b23c7e6779f4fc9eb5fd3
+      md5: d52b43db3cecfd84c47e9f864412b5b8
       size: 2285568
     - path: params.yaml
       hash: md5
@@ -70,5 +70,5 @@ stages:
     outs:
     - path: data/commodore_history_snapshot.db
       hash: md5
-      md5: ec8f9c97c80b23c7e6779f4fc9eb5fd3
+      md5: d52b43db3cecfd84c47e9f864412b5b8
       size: 2285568
