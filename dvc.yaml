@@ -8,6 +8,15 @@ stages:
       - date_from
       - date_to
       - commodore_history_db
+  pull_event_log:
+    cmd: python datapulls/export_events.py --date-from ${date_from} --date-to ${date_to} --output ${commodore_history_db}
+    deps:
+      - datapulls/export_events.py
+      - params.yaml
+    params:
+      - date_from
+      - date_to
+      - commodore_history_db
   snapshot_commodore_history:
     cmd: cp ${commodore_history_db} ${commodore_history_snapshot_db}
     deps:
