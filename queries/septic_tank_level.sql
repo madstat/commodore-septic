@@ -1,173 +1,117 @@
 
-WITH RECURSIVE day_expansion AS (
-    -- Start with each booking's arrival date
+WITH
+params AS (
     SELECT
-        booking_id,
-        arrival_date AS day,
-        arrival_date,
-        departure_date,
-        check_in_time,
-        check_out_time,
-        adults,
-        children,
-        infants,
-        pets
-    FROM bookings
-
-    UNION ALL
-
-    -- Add one day at a time, up to 14 days
-    SELECT
-        booking_id,
-        date(day, '+1 day'),
-        arrival_date,
-        departure_date,
-        check_in_time,
-        check_out_time,
-        adults,
-        children,
-        infants,
-        pets
-    FROM day_expansion
-    WHERE day < departure_date
+        'e4b063d424a0' AS sump_device_id,
+        'e4b063d4444c' AS septic_device_id,
+        '2026-07-07 18:00:00' AS model_start_datetime,
+        4.723 AS gallons_in_per_metered_sump_wh,
+        20.0 AS gallons_out_per_septic_cycle,
+        19.673198 AS septic_wh_per_cycle,
+        900.0 AS tank_capacity_gallons,
+        0.0 AS initial_tank_gallons
 ),
-
-expanded AS (
+hourly_energy AS (
     SELECT
-        booking_id,
-        day AS stay_date,
-
-        -- Start timestamp for this day
-        datetime(
-            CASE
-                WHEN day = arrival_date THEN arrival_date || ' ' || check_in_time
-                ELSE day || ' 00:00:00'
-            END
-        ) AS start_ts,
-
-        -- End timestamp for this day
-        datetime(
-            CASE
-                WHEN day = departure_date THEN departure_date || ' ' || check_out_time
-                ELSE date(day, '+1 day') || ' 00:00:00'
-            END
-        ) AS end_ts,
-
-        -- Weighted occupants
-        (adults * 1.0) +
-        (children * 1.0) +
-        (infants * 0.5) +
-        (pets * 0.0) AS occupants
-    FROM day_expansion
+        a.datetime,
+        COALESCE(a.consumption, 0.0) AS sump_energy_wh,
+        COALESCE(b.consumption, 0.0) AS septic_energy_wh
+    FROM main.energy_history a
+    JOIN main.energy_history b
+      ON a.datetime = b.datetime
+    JOIN params p
+      ON a.device_id = p.sump_device_id
+     AND b.device_id = p.septic_device_id
+    WHERE a.datetime >= p.model_start_datetime
+    ORDER BY a.datetime
 ),
-
-septic_pump_log AS (
-
+hourly_flow AS (
     SELECT
-        eh.device_id,
-        DATE(eh.datetime) AS date,
-        SUM(eh.consumption) AS total_energy,
-        ROUND(SUM(eh.consumption) / 0.21) AS pump_cycles,
-        ROUND(SUM(eh.consumption) / 0.21)*25 AS gallons_pumped
-    FROM main.energy_history eh
-    JOIN main.devices d ON eh.device_id = d.device_id
-    AND d.name = 'Septic Controls'
-    WHERE eh.datetime >= '2025-05-01 00:00:00'
-    GROUP BY eh.device_id, DATE(eh.datetime)
-), 
-
-daily_net_gallons AS (
-    SELECT
-        spl.date,
-
-        -- SUM occupant-hours across all bookings touching this date
-        SUM(
-            COALESCE(
-                e.occupants * ((julianday(e.end_ts) - julianday(e.start_ts)) * 24),
-                0
-            )
-        ) AS occupant_hours,
-
-        -- Weighted occupants not needed after grouping (hours already weighted)
-
-        -- Gallons in = occupant-hours × (40 gallons per day / 24 hours)
-        SUM(
-            COALESCE(
-                e.occupants * ((julianday(e.end_ts) - julianday(e.start_ts)) * 24) * (40.0 / 24.0),
-                0
-            )
-        ) AS gallons_in,
-
-        -- Pump data: take MAX because pump_cycles and gallons_pumped
-        -- are already aggregated per day in septic_pump_log
-        MAX(spl.pump_cycles) AS pump_cycles,
-        MAX(spl.gallons_pumped) AS gallons_pumped,
-
-        -- Net gallons = gallons_in - gallons_pumped
-        SUM(
-            COALESCE(
-                e.occupants * ((julianday(e.end_ts) - julianday(e.start_ts)) * 24) * (40.0 / 24.0),
-                0
-            )
-        ) - MAX(spl.gallons_pumped) AS net_gallons
-
-    FROM septic_pump_log spl
-    LEFT JOIN expanded e ON e.stay_date = spl.date
-
-    GROUP BY spl.date
-    ORDER BY spl.date
+        he.datetime,
+        he.sump_energy_wh,
+        he.septic_energy_wh,
+        he.sump_energy_wh * p.gallons_in_per_metered_sump_wh AS gallons_in,
+        (he.septic_energy_wh / p.septic_wh_per_cycle) AS septic_cycles_est,
+        (he.septic_energy_wh / p.septic_wh_per_cycle) * p.gallons_out_per_septic_cycle AS gallons_out,
+        (he.sump_energy_wh * p.gallons_in_per_metered_sump_wh)
+          - ((he.septic_energy_wh / p.septic_wh_per_cycle) * p.gallons_out_per_septic_cycle) AS net_gallons,
+        p.tank_capacity_gallons,
+        p.initial_tank_gallons
+    FROM hourly_energy he
+    CROSS JOIN params p
 ),
-
 ordered AS (
     SELECT
-        ROW_NUMBER() OVER (ORDER BY date) AS rn,
-        date,
-        occupant_hours,
-        pump_cycles,
-        net_gallons
-    FROM daily_net_gallons
-),
-
-tank AS (
-    -- Base row
-    SELECT
-        rn,
-        date,
+        ROW_NUMBER() OVER (ORDER BY datetime) AS rn,
+        datetime,
+        sump_energy_wh,
+        septic_energy_wh,
+        gallons_in,
+        septic_cycles_est,
+        gallons_out,
         net_gallons,
-        pump_cycles,
-        occupant_hours,
+        tank_capacity_gallons,
+        initial_tank_gallons
+    FROM hourly_flow
+),
+tank_balance AS (
+    SELECT
+        o.rn,
+        o.datetime,
+        o.sump_energy_wh,
+        o.septic_energy_wh,
+        o.gallons_in,
+        o.septic_cycles_est,
+        o.gallons_out,
+        o.net_gallons,
+        MAX(0.0, o.initial_tank_gallons + o.net_gallons - o.tank_capacity_gallons) AS overflow_gallons_this_hour,
         CASE
-            WHEN pump_cycles = 0 AND occupant_hours = 0 THEN 0
-            ELSE MAX(0, net_gallons)
-        END AS tank_level
-    FROM ordered
-    WHERE rn = 1
+            WHEN MIN(o.tank_capacity_gallons, MAX(0.0, o.initial_tank_gallons + o.net_gallons)) <= 0.0
+                THEN 0.0
+            ELSE MAX(0.0, o.initial_tank_gallons + o.net_gallons - o.tank_capacity_gallons)
+        END AS overflow_gallons_since_empty,
+        MIN(
+            o.tank_capacity_gallons,
+            MAX(0.0, o.initial_tank_gallons + o.net_gallons)
+        ) AS tank_level_gallons
+    FROM ordered o
+    WHERE o.rn = 1
 
     UNION ALL
 
     SELECT
         o.rn,
-        o.date,
+        o.datetime,
+        o.sump_energy_wh,
+        o.septic_energy_wh,
+        o.gallons_in,
+        o.septic_cycles_est,
+        o.gallons_out,
         o.net_gallons,
-        o.pump_cycles,
-        o.occupant_hours,
+        MAX(0.0, tb.tank_level_gallons + o.net_gallons - o.tank_capacity_gallons) AS overflow_gallons_this_hour,
         CASE
-            WHEN o.pump_cycles = 0 AND o.occupant_hours = 0 THEN 0
-            ELSE MAX(0, t.tank_level + o.net_gallons)
-        END AS tank_level
+            WHEN MIN(o.tank_capacity_gallons, MAX(0.0, tb.tank_level_gallons + o.net_gallons)) <= 0.0
+                THEN 0.0
+            ELSE tb.overflow_gallons_since_empty + MAX(0.0, tb.tank_level_gallons + o.net_gallons - o.tank_capacity_gallons)
+        END AS overflow_gallons_since_empty,
+        MIN(
+            o.tank_capacity_gallons,
+            MAX(0.0, tb.tank_level_gallons + o.net_gallons)
+        ) AS tank_level_gallons
     FROM ordered o
-    JOIN tank t
-      ON o.rn = t.rn + 1
+    JOIN tank_balance tb
+      ON o.rn = tb.rn + 1
 )
-
 SELECT
-    dng.date,
-    dng.occupant_hours,
-    dng.gallons_in,
-    dng.pump_cycles,
-    dng.gallons_pumped,
-    dng.net_gallons,
-    t.tank_level
-FROM daily_net_gallons dng
-LEFT JOIN tank t ON dng.date = t.date
-ORDER BY dng.date;
+    datetime,
+    sump_energy_wh,
+    septic_energy_wh,
+    ROUND(gallons_in, 3) AS gallons_in,
+    ROUND(septic_cycles_est, 3) AS septic_cycles_est,
+    ROUND(gallons_out, 3) AS gallons_out,
+    ROUND(net_gallons, 3) AS net_gallons,
+    ROUND(overflow_gallons_this_hour, 3) AS overflow_gallons_this_hour,
+    ROUND(overflow_gallons_since_empty, 3) AS overflow_gallons_since_empty,
+    ROUND(tank_level_gallons, 3) AS tank_level_gallons
+FROM tank_balance
+ORDER BY datetime;

@@ -2,4 +2,5 @@ commodore_history_snapshot_db: data/commodore_history_snapshot.db
 commodore_history_db: data/commodore_history.db
 date_from: "2026-06-19"
 date_to: "2026-06-21"
-
+avg_gallons_per_sump_cycle: 25.976
+avg_gallons_per_metered_sump_wh: 4.723

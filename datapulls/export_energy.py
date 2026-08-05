@@ -55,7 +55,8 @@ def daterange_days(start: datetime, end: datetime) -> List[Dict[str, datetime]]:
 
 
 def fetch_chunk(host: str, auth_key: str, device: str, channel: int, date_from: str, date_to: str, retries=3, timeout=60) -> Dict[str, Any]:
-    url = host.rstrip('/') + '/v2/statistics/power-consumption'
+    # em-1p endpoint matches Shelly Cloud chart magnitudes for these devices.
+    url = host.rstrip('/') + '/v2/statistics/power-consumption/em-1p'
     params = {
         'id': device,
         'channel': str(channel),
