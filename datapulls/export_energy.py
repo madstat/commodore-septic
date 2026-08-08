@@ -47,6 +47,8 @@ def daterange_days(start: datetime, end: datetime) -> List[Dict[str, datetime]]:
     while cur <= last:
         day_start = cur
         day_end = cur + timedelta(days=1) - timedelta(seconds=1)
+        if day_start < start:
+            day_start = start
         if day_end > end:
             day_end = end
         ranges.append({'from': day_start, 'to': day_end})
@@ -119,7 +121,7 @@ def main(argv: List[str]):
     p.add_argument('--channel', help='channel number', default=0, type=int)
     p.add_argument('--date-from', required=True, help="Start date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
     p.add_argument('--date-to', required=True, help="End date (YYYY-MM-DD or 'YYYY-MM-DD HH:MM:SS')")
-    p.add_argument('--output', '-o', default='data/septic_controls_history.db', help='Output SQLite DB path (default: data/septic_controls_history.db)')
+    p.add_argument('--output', '-o', default='data/commodore_history.db', help='Output SQLite DB path (default: data/commodore_history.db)')
     p.add_argument('--sleep', type=float, default=1.05, help='Seconds to sleep between requests (rate limit)')
     args = p.parse_args(argv)
 

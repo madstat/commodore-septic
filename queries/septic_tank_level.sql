@@ -6,6 +6,8 @@ params AS (
         'e4b063d4444c' AS septic_device_id,
         '2026-07-07 18:00:00' AS model_start_datetime,
         datetime('now', 'localtime') AS as_of_datetime,
+        '2026-08-05 22:20:00' AS outage_start_datetime,
+        '2026-08-06 08:20:00' AS outage_end_datetime,
         4.723 AS gallons_in_per_metered_sump_wh,
         20.0 AS gallons_out_per_septic_cycle,
         19.673198 AS septic_wh_per_cycle,
@@ -67,16 +69,32 @@ hourly_flow AS (
         he.datetime,
         he.sump_energy_wh,
         he.septic_energy_wh,
-        he.sump_energy_wh * p.gallons_in_per_metered_sump_wh AS gallons_in,
+        CASE
+            WHEN he.datetime >= p.outage_start_datetime
+             AND he.datetime <= p.outage_end_datetime
+                THEN 0.0
+            ELSE he.sump_energy_wh * p.gallons_in_per_metered_sump_wh
+        END AS gallons_in,
         (he.septic_energy_wh / p.septic_wh_per_cycle) AS septic_cycles_est,
         (he.septic_energy_wh / p.septic_wh_per_cycle) * p.gallons_out_per_septic_cycle AS gallons_out,
-        (he.sump_energy_wh * p.gallons_in_per_metered_sump_wh)
+        (
+            CASE
+                WHEN he.datetime >= p.outage_start_datetime
+                 AND he.datetime <= p.outage_end_datetime
+                    THEN 0.0
+                ELSE he.sump_energy_wh * p.gallons_in_per_metered_sump_wh
+            END
+        )
           - ((he.septic_energy_wh / p.septic_wh_per_cycle) * p.gallons_out_per_septic_cycle) AS net_gallons,
                 (
                         SELECT MAX(srs.reset_to_zero_datetime)
                         FROM septic_run_summary srs
                         WHERE srs.run_cycle_count >= p.min_cycles_for_empty_reset
                             AND srs.reset_to_zero_datetime <= he.datetime
+                            AND (
+                                srs.reset_to_zero_datetime < p.outage_start_datetime
+                                OR srs.reset_to_zero_datetime > p.outage_end_datetime
+                            )
                 ) AS reset_to_zero_datetime,
         p.tank_capacity_gallons,
         p.initial_tank_gallons
