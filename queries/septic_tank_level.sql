@@ -2,8 +2,8 @@
 WITH
 params AS (
     SELECT
-        'e4b063d424a0' AS sump_device_id,
-        'e4b063d4444c' AS septic_device_id,
+        'Sump Pump' AS sump_device_name,
+        'Septic Pump' AS septic_device_name,
         '2026-07-07 18:00:00' AS model_start_datetime,
         datetime('now', 'localtime') AS as_of_datetime,
         '2026-08-05 22:20:00' AS outage_start_datetime,
@@ -17,6 +17,18 @@ params AS (
         900.0 AS tank_capacity_gallons,
         0.0 AS initial_tank_gallons
 ),
+device_lookup AS (
+        SELECT
+                p.sump_device_name,
+                p.septic_device_name,
+                ds.device_id AS sump_device_id,
+                dp.device_id AS septic_device_id
+        FROM params p
+        LEFT JOIN main.devices ds
+            ON ds.name = p.sump_device_name
+        LEFT JOIN main.devices dp
+            ON dp.name = p.septic_device_name
+),
 hourly_energy AS (
     SELECT
         a.datetime,
@@ -25,9 +37,10 @@ hourly_energy AS (
     FROM main.energy_history a
     JOIN main.energy_history b
       ON a.datetime = b.datetime
-    JOIN params p
-      ON a.device_id = p.sump_device_id
-     AND b.device_id = p.septic_device_id
+        JOIN device_lookup d
+            ON a.device_id = d.sump_device_id
+         AND b.device_id = d.septic_device_id
+        JOIN params p
     WHERE a.datetime >= p.model_start_datetime
       AND a.datetime <= p.as_of_datetime
     ORDER BY a.datetime

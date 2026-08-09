@@ -12,7 +12,13 @@ dependencies = [
     "dvc>=3.67.1",
     "ipykernel>=7.3.0",
     "dvc-gdrive>=3.0.1",
+    "statsmodels>=0.14.6",
+    "matplotlib>=3.11.1",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["commodore_septic*"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
